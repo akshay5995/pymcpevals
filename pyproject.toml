@@ -63,33 +63,36 @@ pymcpevals = "pymcpevals.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# TODO: Add pytest configuration when tests are implemented
-# [tool.pytest.ini_options]
-# testpaths = ["tests"]
-# asyncio_mode = "auto"
-# asyncio_default_fixture_loop_scope = "function"
-# python_files = ["test_*.py"]
-# python_classes = ["Test*"]
-# python_functions = ["test_*"]
-# addopts = [
-#     "-v",
-#     "--tb=short",
-#     "--strict-markers",
-#     "--strict-config",
-#     "--cov=pymcpevals",
-#     "--cov-report=term-missing",
-#     "--cov-report=html",
-#     "--cov-report=xml",
-# ]
-# markers = [
-#     "integration: marks tests as integration tests",
-#     "unit: marks tests as unit tests",
-#     "mcp_eval: marks tests as MCP evaluation tests",
-# ]
-# filterwarnings = [
-#     "ignore::DeprecationWarning",
-#     "ignore::PendingDeprecationWarning",
-# ]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=pymcpevals",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+markers = [
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "mcp_eval: marks tests as MCP evaluation tests",
+    "server_debug: marks tests for MCP server debugging features",
+    "tool_validation: marks tests for tool call validation",
+    "multi_turn: marks tests for multi-turn conversation scenarios",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning", 
+    "ignore::PendingDeprecationWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.black]
 line-length = 100
