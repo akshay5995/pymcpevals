@@ -11,21 +11,8 @@ from .timing import measure_time
 from .types import ConversationTurn, EvaluationCase, EvaluationResult
 
 
-async def run_evals_trajectory(
-    client: Client, turns: list[ConversationTurn], model: str = "gpt-4"
-) -> tuple[list[dict[str, Any]], list[str], list[dict[str, Any]]]:
-    """
-    Execute a conversation trajectory with an MCP server.
-
-    Args:
-        client: FastMCP client (already connected)
-        turns: List of conversation turns to execute
-        model: LLM model to use
-
-    Returns:
-        Tuple of (conversation_history, tools_used, tool_call_details)
-    """
-    # Get available tools from the server
+async def _setup_tools_from_server(client: Client) -> list[dict[str, Any]]:
+    """Set up formatted tools from the MCP server."""
     tools = await client.list_tools()
     formatted_tools = []
 
@@ -42,6 +29,150 @@ async def run_evals_trajectory(
                     },
                 }
             )
+
+    return formatted_tools
+
+
+async def _execute_tool_call(
+    client: Client,
+    tool_call,
+    tool_call_details: list[dict[str, Any]],
+    tools_used: list[str],
+) -> dict[str, Any]:
+    """Execute a single tool call and return the result message."""
+    tool_name = tool_call.function.name
+    tools_used.append(tool_name)
+    tool_args = json.loads(tool_call.function.arguments)
+
+    try:
+        # Measure tool execution time
+        with measure_time() as timer:
+            tool_result = await client.call_tool(tool_name, tool_args)
+
+        # Format the result
+        if hasattr(tool_result, "data"):
+            result_text = str(tool_result.data)
+        elif hasattr(tool_result, "content"):
+            if isinstance(tool_result.content, list):
+                result_text = "\n".join(
+                    [
+                        item.text if hasattr(item, "text") else str(item)
+                        for item in tool_result.content
+                    ]
+                )
+            else:
+                result_text = str(tool_result.content)
+        else:
+            result_text = str(tool_result)
+
+        # Record successful tool call
+        tool_call_details.append(
+            {
+                "tool_name": tool_name,
+                "arguments": tool_args,
+                "success": True,
+                "execution_time_ms": timer.elapsed_ms,
+                "result_preview": (
+                    result_text[:100] + "..."
+                    if len(result_text) > 100
+                    else result_text
+                ),
+            }
+        )
+
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call.id,
+            "content": result_text,
+        }
+
+    except Exception as e:
+        # Record failed tool call
+        tool_call_details.append(
+            {
+                "tool_name": tool_name,
+                "arguments": tool_args,
+                "success": False,
+                "execution_time_ms": timer.elapsed_ms,
+                "error_message": str(e),
+            }
+        )
+
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call.id,
+            "content": f"Error calling tool: {e!s}",
+        }
+
+
+async def _handle_tool_calls(
+    client: Client,
+    message,
+    messages: list[dict[str, Any]],
+    tools_used: list[str],
+    tool_call_details: list[dict[str, Any]],
+    model: str,
+) -> None:
+    """Handle tool calls and get final response."""
+    # Convert LiteLLM message to dict for consistency
+    messages.append(
+        {
+            "role": "assistant",
+            "content": message.content or "",
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": tc.type or "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                }
+                for tc in message.tool_calls
+            ],
+        }
+    )
+
+    # Execute each tool call
+    for tool_call in message.tool_calls:
+        tool_result_message = await _execute_tool_call(
+            client, tool_call, tool_call_details, tools_used
+        )
+        messages.append(tool_result_message)
+
+    # Get final response after tool execution
+    try:
+        final_response = await acompletion(model=model, messages=messages)
+        if final_response.choices[0].message.content:
+            assistant_content = final_response.choices[0].message.content
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": str(assistant_content),
+                }
+            )
+    except Exception as e:
+        # Handle API errors in final response
+        error_msg = f"LLM API error in final response: {e!s}"
+        messages.append({"role": "assistant", "content": error_msg})
+
+
+async def run_evals_trajectory(
+    client: Client, turns: list[ConversationTurn], model: str = "gpt-4"
+) -> tuple[list[dict[str, Any]], list[str], list[dict[str, Any]]]:
+    """
+    Execute a conversation trajectory with an MCP server.
+
+    Args:
+        client: FastMCP client (already connected)
+        turns: List of conversation turns to execute
+        model: LLM model to use
+
+    Returns:
+        Tuple of (conversation_history, tools_used, tool_call_details)
+    """
+    # Get available tools from the server
+    formatted_tools = await _setup_tools_from_server(client)
 
     # System prompt for MCP tool usage
     system_prompt = """You are an assistant with access to MCP (Model Context Protocol) tools. 
@@ -75,109 +206,9 @@ Use the available tools to help answer the user's questions. Be thorough and pro
 
                 # Handle tool calls if any
                 if message.tool_calls:
-                    # Convert LiteLLM message to dict for consistency
-                    messages.append(
-                        {
-                            "role": "assistant",
-                            "content": message.content or "",
-                            "tool_calls": [
-                                {
-                                    "id": tc.id,
-                                    "type": tc.type or "function",
-                                    "function": {
-                                        "name": tc.function.name,
-                                        "arguments": tc.function.arguments,
-                                    },
-                                }
-                                for tc in message.tool_calls
-                            ],
-                        }
+                    await _handle_tool_calls(
+                        client, message, messages, tools_used, tool_call_details, model
                     )
-
-                    for tool_call in message.tool_calls:
-                        tool_name = tool_call.function.name
-                        tools_used.append(tool_name)
-                        tool_args = json.loads(tool_call.function.arguments)
-
-                        try:
-                            # Measure tool execution time
-                            with measure_time() as timer:
-                                tool_result = await client.call_tool(tool_name, tool_args)
-
-                            # Format the result
-                            if hasattr(tool_result, "data"):
-                                result_text = str(tool_result.data)
-                            elif hasattr(tool_result, "content"):
-                                if isinstance(tool_result.content, list):
-                                    result_text = "\n".join(
-                                        [
-                                            item.text if hasattr(item, "text") else str(item)
-                                            for item in tool_result.content
-                                        ]
-                                    )
-                                else:
-                                    result_text = str(tool_result.content)
-                            else:
-                                result_text = str(tool_result)
-
-                            # Record successful tool call
-                            tool_call_details.append(
-                                {
-                                    "tool_name": tool_name,
-                                    "arguments": tool_args,
-                                    "success": True,
-                                    "execution_time_ms": timer.elapsed_ms,
-                                    "result_preview": (
-                                        result_text[:100] + "..."
-                                        if len(result_text) > 100
-                                        else result_text
-                                    ),
-                                }
-                            )
-
-                            messages.append(
-                                {
-                                    "role": "tool",
-                                    "tool_call_id": tool_call.id,
-                                    "content": result_text,
-                                }
-                            )
-
-                        except Exception as e:
-                            # Record failed tool call
-                            tool_call_details.append(
-                                {
-                                    "tool_name": tool_name,
-                                    "arguments": tool_args,
-                                    "success": False,
-                                    "execution_time_ms": timer.elapsed_ms,
-                                    "error_message": str(e),
-                                }
-                            )
-
-                            messages.append(
-                                {
-                                    "role": "tool",
-                                    "tool_call_id": tool_call.id,
-                                    "content": f"Error calling tool: {e!s}",
-                                }
-                            )
-
-                    # Get final response after tool execution
-                    try:
-                        final_response = await acompletion(model=model, messages=messages)
-                        if final_response.choices[0].message.content:
-                            assistant_content = final_response.choices[0].message.content
-                            messages.append(
-                                {
-                                    "role": "assistant",
-                                    "content": str(assistant_content),
-                                }
-                            )
-                    except Exception as e:
-                        # Handle API errors in final response
-                        error_msg = f"LLM API error in final response: {e!s}"
-                        messages.append({"role": "assistant", "content": error_msg})
                 # No tools called, add direct response
                 elif message.content:
                     messages.append({"role": "assistant", "content": str(message.content)})

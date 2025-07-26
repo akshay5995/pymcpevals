@@ -260,13 +260,8 @@ def _output_table(summary: EvaluationSummary) -> None:
     console.print(f"[bold]Summary:[/bold] {summary}")
 
 
-def _output_detailed(summary: EvaluationSummary) -> None:
-    """Output enhanced table with server developer insights."""
-    console.print()
-    console.print("[bold blue]MCP Server Evaluation Results[/bold blue]")
-    console.print()
-
-    # Main results table
+def _create_main_results_table(summary: EvaluationSummary) -> Table:
+    """Create the main results table."""
     table = Table(title="Evaluation Results")
     table.add_column("Test", style="cyan", width=25)
     table.add_column("Status", justify="center", width=8)
@@ -285,40 +280,16 @@ def _output_detailed(summary: EvaluationSummary) -> None:
             test_name = test_name[:22] + "..."
 
         # Tools used
-        tools_display = ""
-        if result.tools_used:
-            tools_display = ", ".join(result.tools_used)
-            if len(tools_display) > 20:
-                tools_display = tools_display[:17] + "..."
-        else:
-            tools_display = "[dim]None[/dim]"
+        tools_display = _format_tools_display(result.tools_used)
 
         # Execution time with color coding
-        time_ms = result.total_execution_time_ms
-        if time_ms > 3000:
-            time_display = f"[red]{time_ms:.0f}ms[/red]"
-        elif time_ms > 1000:
-            time_display = f"[yellow]{time_ms:.0f}ms[/yellow]"
-        else:
-            time_display = f"{time_ms:.0f}ms"
+        time_display = _format_time_display(result.total_execution_time_ms)
 
         # Error count
-        error_count = result.failed_tool_calls
-        error_display = f"[red]{error_count}[/red]" if error_count > 0 else "0"
+        error_display = f"[red]{result.failed_tool_calls}[/red]" if result.failed_tool_calls > 0 else "0"
 
         # Notes (errors or key insights)
-        notes = ""
-        if result.error:
-            notes = result.error[:30] + "..." if len(result.error) > 30 else result.error
-        elif not result.passed:
-            # Show brief comment for failed tests
-            notes = (
-                result.overall_comments[:30] + "..."
-                if len(result.overall_comments) > 30
-                else result.overall_comments
-            )
-        else:
-            notes = "[dim]OK[/dim]"
+        notes = _format_notes(result)
 
         table.add_row(
             test_name,
@@ -330,40 +301,90 @@ def _output_detailed(summary: EvaluationSummary) -> None:
             notes,
         )
 
+    return table
+
+
+def _format_tools_display(tools_used: list[str] | None) -> str:
+    """Format the tools used display."""
+    if tools_used:
+        tools_display = ", ".join(tools_used)
+        if len(tools_display) > 20:
+            tools_display = tools_display[:17] + "..."
+    else:
+        tools_display = "[dim]None[/dim]"
+    return tools_display
+
+
+def _format_time_display(time_ms: float) -> str:
+    """Format the execution time display with color coding."""
+    if time_ms > 3000:
+        return f"[red]{time_ms:.0f}ms[/red]"
+    if time_ms > 1000:
+        return f"[yellow]{time_ms:.0f}ms[/yellow]"
+    return f"{time_ms:.0f}ms"
+
+
+def _format_notes(result) -> str:
+    """Format the notes display for a result."""
+    if result.error:
+        return result.error[:30] + "..." if len(result.error) > 30 else result.error
+    if not result.passed:
+        # Show brief comment for failed tests
+        return (
+            result.overall_comments[:30] + "..."
+            if len(result.overall_comments) > 30
+            else result.overall_comments
+        )
+    return "[dim]OK[/dim]"
+
+
+def _display_failed_test_details(failed_results: list) -> None:
+    """Display detailed information for failed tests."""
+    console.print("[bold red]🔧 Failed Test Details:[/bold red]")
+    for result in failed_results:
+        test_name = result.prompt or "Multi-turn test"
+        console.print(f"[bold]• {test_name[:50]}{'...' if len(test_name) > 50 else ''}[/bold]")
+
+        # Show tool call details for debugging
+        if result.tool_call_details:
+            console.print("  Tool calls:")
+            for call in result.tool_call_details:
+                status_icon = "✅" if call.get("success", True) else "❌"
+                tool_name = call.get("tool_name", "unknown")
+                time_ms = call.get("execution_time_ms", 0)
+
+                if call.get("success", True):
+                    console.print(f"    {status_icon} {tool_name} ({time_ms:.0f}ms)")
+                else:
+                    error_msg = call.get("error_message", "Unknown error")
+                    console.print(
+                        f"    {status_icon} {tool_name} ({time_ms:.0f}ms) - [red]{error_msg}[/red]"
+                    )
+
+        # Show key failure info
+        if result.error:
+            console.print(f"  [red]Error: {result.error}[/red]")
+        elif result.overall_comments:
+            console.print(f"  Issue: {result.overall_comments}")
+
+        console.print()
+
+
+def _output_detailed(summary: EvaluationSummary) -> None:
+    """Output enhanced table with server developer insights."""
+    console.print()
+    console.print("[bold blue]MCP Server Evaluation Results[/bold blue]")
+    console.print()
+
+    # Main results table
+    table = _create_main_results_table(summary)
     console.print(table)
     console.print()
 
     # Tool call details for failed evaluations
     failed_results = [r for r in summary.results if not r.passed]
     if failed_results:
-        console.print("[bold red]🔧 Failed Test Details:[/bold red]")
-        for result in failed_results:
-            test_name = result.prompt or "Multi-turn test"
-            console.print(f"[bold]• {test_name[:50]}{'...' if len(test_name) > 50 else ''}[/bold]")
-
-            # Show tool call details for debugging
-            if result.tool_call_details:
-                console.print("  Tool calls:")
-                for call in result.tool_call_details:
-                    status_icon = "✅" if call.get("success", True) else "❌"
-                    tool_name = call.get("tool_name", "unknown")
-                    time_ms = call.get("execution_time_ms", 0)
-
-                    if call.get("success", True):
-                        console.print(f"    {status_icon} {tool_name} ({time_ms:.0f}ms)")
-                    else:
-                        error_msg = call.get("error_message", "Unknown error")
-                        console.print(
-                            f"    {status_icon} {tool_name} ({time_ms:.0f}ms) - [red]{error_msg}[/red]"
-                        )
-
-            # Show key failure info
-            if result.error:
-                console.print(f"  [red]Error: {result.error}[/red]")
-            elif result.overall_comments:
-                console.print(f"  Issue: {result.overall_comments}")
-
-            console.print()
+        _display_failed_test_details(failed_results)
 
     # Summary
     console.print(f"[bold]Summary:[/bold] {summary}")
