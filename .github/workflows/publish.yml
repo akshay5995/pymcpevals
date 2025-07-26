@@ -21,6 +21,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install build twine
 
+    - name: Install package dependencies for validation
+      run: |
+        pip install -e .
+
     - name: Validate version consistency
       run: |
         # Extract version from pyproject.toml
