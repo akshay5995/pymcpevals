@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-format:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Lint with ruff
+      run: |
+        ruff check src/
+
+    - name: Format check with black
+      run: |
+        black --check src/
+
+    - name: Type check with mypy
+      run: |
+        mypy src/
+
+    - name: Test package installation and imports
+      run: |
+        python -c "import pymcpevals; print('✅ Package imports successfully')"
+        python -c "from pymcpevals import evaluate_mcp_server, EvaluationCase; print('✅ Core exports work')"
+
+    - name: Test CLI functionality
+      run: |
+        # Test CLI entry point and basic commands
+        pymcpevals --help
+        pymcpevals init test-config-ci.yaml
+        cat test-config-ci.yaml  # Verify template was created
+        rm test-config-ci.yaml   # Clean up
+
+  compatibility-check:
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.11
+
+    - name: Install package only (no dev dependencies)
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Test core functionality without dev dependencies
+      run: |
+        python -c "
+        import pymcpevals
+        print(f'✅ Package version: {pymcpevals.__version__}')
+        print(f'✅ Available exports: {len(pymcpevals.__all__)} items')
+        print('✅ Package works without dev dependencies')
+        "
+
+    - name: Verify CLI without dev dependencies
+      run: |
+        pymcpevals --help
+        echo "✅ CLI works without dev dependencies"

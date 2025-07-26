@@ -1,0 +1,40 @@
+# Basic evaluation configuration for local MCP server
+# This example tests a calculator server running locally
+
+model:
+  provider: gemini
+  name: gemini-2.5-flash
+  # API key will be read from GEMINI_API_KEY environment variable
+
+server:
+  # Local server - run as subprocess
+  command: ["python", "calculator_server.py"]
+  env:
+    DEBUG: "false"
+  # if you want to use the http transport, uncomment the following line
+  # url: http://127.0.0.1:3001/mcp
+
+evaluations:
+  - name: basic_addition
+    description: Test basic addition functionality
+    prompt: "What is 15 + 27?"
+    expected_result: "Should use add tool and return 42"
+    threshold: 4.0
+    tags: ["basic", "arithmetic"]
+
+  - name: division_by_zero
+    description: Test error handling for invalid operations
+    prompt: "What happens if I divide 10 by 0?"
+    expected_result: "Should handle division by zero error gracefully"
+    threshold: 3.5
+    tags: ["error-handling"]
+
+  - name: mathematical_reasoning
+    description: Test mathematical problem solving
+    prompt: "If I have a square garden with area 144 square meters, what is the length of each side?"
+    expected_result: "Should use square_root tool to determine side length is 12 meters"
+    threshold: 4.5
+    tags: ["reasoning", "word-problem"]
+
+timeout: 30.0
+parallel: false

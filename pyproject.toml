@@ -1,0 +1,122 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pymcpevals"
+version = "0.1.0"
+description = "Python package for evaluating MCP (Model Context Protocol) server implementations using LLM-based scoring"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    {name = "Akshay Ram Vignesh", email = "akshay5995@gmail.com"},
+]
+keywords = ["mcp", "evaluation", "testing", "llm", "ai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: Pytest",
+    "Topic :: Software Development :: Testing",
+]
+
+dependencies = [
+    "fastmcp>=0.5.0",
+    "litellm>=1.0.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "click>=8.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.0.270",
+    "mypy>=1.0.0",
+    "types-pyyaml",
+]
+pytest = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/anthropics/pymcpevals"
+Documentation = "https://github.com/anthropics/pymcpevals#readme"
+Repository = "https://github.com/anthropics/pymcpevals"
+Issues = "https://github.com/anthropics/pymcpevals/issues"
+
+[project.scripts]
+pymcpevals = "pymcpevals.cli:main"
+
+# [project.entry-points.pytest11]
+# pymcpevals = "pymcpevals.pytest_plugin"  # TODO: Implement pytest plugin
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# TODO: Add pytest configuration when tests are implemented
+# [tool.pytest.ini_options]
+# testpaths = ["tests"]
+# asyncio_mode = "auto"
+# asyncio_default_fixture_loop_scope = "function"
+# python_files = ["test_*.py"]
+# python_classes = ["Test*"]
+# python_functions = ["test_*"]
+# addopts = [
+#     "-v",
+#     "--tb=short",
+#     "--strict-markers",
+#     "--strict-config",
+#     "--cov=pymcpevals",
+#     "--cov-report=term-missing",
+#     "--cov-report=html",
+#     "--cov-report=xml",
+# ]
+# markers = [
+#     "integration: marks tests as integration tests",
+#     "unit: marks tests as unit tests",
+#     "mcp_eval: marks tests as MCP evaluation tests",
+# ]
+# filterwarnings = [
+#     "ignore::DeprecationWarning",
+#     "ignore::PendingDeprecationWarning",
+# ]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "I", "N", "UP", "S", "B", "A", "COM", "C4", "DTZ", "T10", "EXE", "ISC", "PIE", "PT", "Q", "RET", "SIM", "TID", "ARG", "PL", "FLY", "PERF", "RUF"
+]
+ignore = [
+    "S101",
+    "PLR0913",
+    "EXE001",
+    "PLR2004",
+    "PT006",
+    "F841",
+    "PLC0415",
+    "PLR0912",
+    "E501",
+    "COM812",
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

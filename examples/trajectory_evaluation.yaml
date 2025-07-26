@@ -1,0 +1,88 @@
+# Trajectory-based evaluation example
+# Tests multi-turn conversations and complex problem-solving flows
+
+model:
+  provider: gemini
+  name: gemini-2.5-flash
+  # API key will be read from GOOGLE_API_KEY environment variable
+
+server:
+  command: ["python", "calculator_server.py"]
+  env:
+    DEBUG: "false"
+  # if you want to use the http transport, uncomment the following line
+  # url: http://127.0.0.1:3001/mcp
+
+evaluations:
+  # Single-prompt evaluation for comparison
+  - name: single_calculation
+    description: Single-step calculation
+    prompt: "What is 25 * 4?"
+    expected_result: "Should return 100"
+    threshold: 4.0
+    tags: ["single-step"]
+
+  # Multi-turn trajectory evaluation
+  - name: guided_problem_solving
+    description: Test multi-step mathematical problem solving with guidance
+    turns:
+      - role: user
+        content: "I need to calculate the area of a circular garden"
+        expected_result: "Should acknowledge the task and ask for details"
+      - role: user
+        content: "The radius is 7 meters. What formula should I use?"
+        expected_result: "Should explain area = π × r² formula"
+      - role: user
+        content: "Now calculate the actual area using that formula"
+        expected_tools: ["multiply", "power"]
+        expected_result: "Should calculate π × 7² ≈ 153.94 square meters"
+    expected_result: "Should guide through complete problem-solving process"
+    threshold: 4.5
+    tags: ["trajectory", "guidance", "education"]
+
+  # Complex multi-step trajectory
+  - name: compound_interest_calculation
+    description: Multi-step financial calculation with explanations
+    turns:
+      - role: user
+        content: "I want to calculate compound interest on $1000 invested for 3 years at 5% annual rate"
+        expected_result: "Should acknowledge the compound interest problem"
+      - role: user
+        content: "What's the formula for compound interest?"
+        expected_result: "Should explain A = P(1 + r)^t formula"
+      - role: user
+        content: "Now calculate it step by step: first calculate (1 + 0.05)"
+        expected_tools: ["add"]
+        expected_result: "Should calculate 1.05"
+      - role: user
+        content: "Now raise that to the power of 3"
+        expected_tools: ["power"]
+        expected_result: "Should calculate 1.05³ ≈ 1.1576"
+      - role: user
+        content: "Finally multiply by the principal amount of $1000"
+        expected_tools: ["multiply"]
+        expected_result: "Should calculate final amount ≈ $1157.63"
+    expected_result: "Should complete entire compound interest calculation with explanations"
+    threshold: 4.8
+    tags: ["trajectory", "finance", "step-by-step", "complex"]
+
+  # Error recovery trajectory
+  - name: error_recovery_flow
+    description: Test error handling and recovery in conversation
+    turns:
+      - role: user
+        content: "Divide 100 by 0"
+        expected_result: "Should attempt division and encounter error"
+      - role: user
+        content: "That didn't work. What went wrong?"
+        expected_result: "Should explain division by zero error"
+      - role: user
+        content: "OK, let's divide 100 by 5 instead"
+        expected_tools: ["divide"]
+        expected_result: "Should successfully calculate 20"
+    expected_result: "Should demonstrate error recovery and successful completion"
+    threshold: 4.0
+    tags: ["trajectory", "error-recovery", "robustness"]
+
+timeout: 60.0  # Longer timeout for complex trajectories
+parallel: false

@@ -1,0 +1,118 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Validate version consistency
+      run: |
+        # Extract version from pyproject.toml
+        PYPROJECT_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+        # Extract version from __init__.py
+        INIT_VERSION=$(python -c "import sys; sys.path.insert(0, 'src'); import pymcpevals; print(pymcpevals.__version__)")
+        # Extract version from git tag (remove 'v' prefix if present)
+        GIT_TAG_VERSION=${GITHUB_REF_NAME#v}
+        
+        echo "PyProject version: $PYPROJECT_VERSION"
+        echo "Init version: $INIT_VERSION"
+        echo "Git tag version: $GIT_TAG_VERSION"
+        
+        # Check if all versions match
+        if [ "$PYPROJECT_VERSION" != "$INIT_VERSION" ]; then
+          echo "❌ Version mismatch between pyproject.toml and __init__.py"
+          exit 1
+        fi
+        
+        if [ "$PYPROJECT_VERSION" != "$GIT_TAG_VERSION" ]; then
+          echo "❌ Version mismatch between code ($PYPROJECT_VERSION) and git tag ($GIT_TAG_VERSION)"
+          exit 1
+        fi
+        
+        echo "✅ All versions match: $PYPROJECT_VERSION"
+
+    - name: Install package for validation
+      run: |
+        pip install -e .
+
+    - name: Validate package functionality
+      run: |
+        # Test core imports
+        python -c "import pymcpevals; print(f'✅ Package version: {pymcpevals.__version__}')"
+        
+        # Test CLI
+        pymcpevals --help
+        pymcpevals init test-release.yaml
+        rm test-release.yaml
+        
+        echo "✅ Package validation successful"
+
+    - name: Build package
+      run: python -m build
+
+    - name: Check package
+      run: |
+        twine check dist/*
+        echo "✅ Package build successful"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-files
+        path: dist/
+
+  publish-to-pypi:
+    runs-on: ubuntu-latest
+    needs: validate-and-build
+    environment: pypi  # Use environment protection
+    
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-files
+        path: dist/
+
+    - name: Publish to PyPI
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        pip install twine
+        twine upload dist/*
+        echo "✅ Published to PyPI successfully!"
+
+  update-release-notes:
+    runs-on: ubuntu-latest
+    needs: publish-to-pypi
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Update release summary
+      run: |
+        echo "# 🎉 Release Published Successfully!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ github.event.release.tag_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Package:** https://pypi.org/project/pymcpevals/${{ github.event.release.tag_name }}/" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Installation" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "pip install pymcpevals==${{ github.event.release.tag_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
