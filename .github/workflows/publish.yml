@@ -51,10 +51,6 @@ jobs:
         
         echo "✅ All versions match: $PYPROJECT_VERSION"
 
-    - name: Install package for validation
-      run: |
-        pip install -e .
-
     - name: Validate package functionality
       run: |
         # Test core imports
