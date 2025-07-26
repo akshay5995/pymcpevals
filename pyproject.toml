@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Python package for evaluating MCP (Model Context Protocol) server implementations using LLM-based scoring"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "Akshay Ram Vignesh", email = "akshay5995@gmail.com"},
 ]
