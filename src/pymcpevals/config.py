@@ -147,6 +147,15 @@ def save_config_template(output_path: str | Path) -> None:
                 "expected_result": "Should describe available capabilities",
                 "threshold": 3.0,
             },
+            # Single-prompt evaluation with expected tools
+            {
+                "name": "tool_usage_test",
+                "description": "Test if specific tools are called",
+                "prompt": "What's the weather like today?",
+                "expected_tools": ["get_weather"],
+                "expected_result": "Should call get_weather tool and provide weather information",
+                "threshold": 4.0,
+            },
             # Trajectory-based evaluation
             {
                 "name": "multi_step_task",

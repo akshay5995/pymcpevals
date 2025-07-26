@@ -43,6 +43,9 @@ class EvaluationResult(BaseModel):
     tools_used: list[str] | None = Field(
         default=None, description="List of tools that were called during evaluation"
     )
+    expected_tools: list[str] | None = Field(
+        default=None, description="List of tools that were expected to be called"
+    )
     expected_result: str | None = Field(
         default=None,
         description="Expected behavior description",
@@ -164,6 +167,10 @@ class EvaluationCase(BaseModel):
     expected_result: str | None = Field(
         default=None,
         description="Expected behavior description (single-turn mode)",
+    )
+    expected_tools: list[str] | None = Field(
+        default=None,
+        description="Expected tools to be called (single-turn mode)",
     )
 
     # Trajectory mode

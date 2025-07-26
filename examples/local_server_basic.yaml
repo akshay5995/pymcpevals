@@ -18,6 +18,7 @@ evaluations:
   - name: basic_addition
     description: Test basic addition functionality
     prompt: "What is 15 + 27?"
+    expected_tools: ["add"]
     expected_result: "Should use add tool and return 42"
     threshold: 4.0
     tags: ["basic", "arithmetic"]
@@ -25,16 +26,10 @@ evaluations:
   - name: division_by_zero
     description: Test error handling for invalid operations
     prompt: "What happens if I divide 10 by 0?"
+    expected_tools: ["divide"]
     expected_result: "Should handle division by zero error gracefully"
     threshold: 3.5
     tags: ["error-handling"]
-
-  - name: mathematical_reasoning
-    description: Test mathematical problem solving
-    prompt: "If I have a square garden with area 144 square meters, what is the length of each side?"
-    expected_result: "Should use square_root tool to determine side length is 12 meters"
-    threshold: 4.5
-    tags: ["reasoning", "word-problem"]
 
 timeout: 30.0
 parallel: false

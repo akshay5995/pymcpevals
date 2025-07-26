@@ -2,15 +2,17 @@
 
 > **⚠️ Still Under Development** - This project is actively being developed. APIs may change and features are being added. Please use with caution in production environments.
 
-**Evaluation framework for MCP (Model Context Protocol) servers with LLM-based scoring.**
+**Server-focused evaluation framework for MCP (Model Context Protocol) servers.**
 
-🚀 **Help MCP server developers test their tools by evaluating whether they successfully accomplish user goals.**
+🚀 **Help MCP server developers test their tools by evaluating server capabilities, not LLM conversation patterns.**
 
 ## Features
 
-- 📊 **LLM-based Evaluation**: Uses GPT-4, Claude, Gemini and other models to score server responses
-- 🔍 **Tool Usage Tracking**: Monitor which tools are called and their success/failure rates  
-- ⚡ **Single & Multi-turn Testing**: Support both simple prompts and complex conversation trajectories
+- 🎯 **Server-Focused Evaluation**: Judges MCP server capabilities, not LLM conversation style
+- ✅ **Programmatic Tool Validation**: Instantly fail tests when expected tools aren't called
+- 🔧 **Tool Execution Tracking**: Monitor tool success/failure, timing, and error handling
+- 🔄 **Multi-turn Trajectories**: Test tool chaining and state management across conversation turns
+- ⚡ **Fast Fail Validation**: Deterministic checks before expensive LLM evaluation
 - 🛠️ **FastMCP Integration**: Seamless connection to MCP servers via stdio or HTTP
 - 📋 **Multiple Output Formats**: Table, detailed, JSON, and JUnit XML for CI/CD
 
@@ -45,12 +47,14 @@ evaluations:
     description: "Can users plan their day with weather info?"
     prompt: "What should I wear tomorrow in San Francisco?"
     expected_result: "Should provide weather forecast and clothing suggestions"
+    expected_tools: ["get_weather"]  # ✅ Validates these tools are called
     threshold: 3.5
     
   - name: "data_insights" 
     description: "Can users get insights from their database?"
     prompt: "Show me my best performing products this month"
     expected_result: "Should query database and provide ranked product list"
+    expected_tools: ["query_database", "analyze_data"]  # ✅ Must call these exact tools
     threshold: 4.0
 
   - name: "multi_step_weather"
@@ -58,7 +62,7 @@ evaluations:
     turns:
       - role: "user"
         content: "What's the weather like in London?"
-        expected_tools: ["get_weather"]
+        expected_tools: ["get_weather"]  # ✅ Per-turn tool validation
       - role: "user"
         content: "And how about Paris?"
         expected_tools: ["get_weather"]
@@ -73,30 +77,41 @@ pymcpevals run evals.yaml
 ```
 
 You'll get output showing:
-- ✅/❌ Pass/fail status with scores (1-5 scale)
-- 📊 Detailed scores: accuracy, completeness, relevance, clarity, reasoning
-- 🔧 Tool usage summary and execution times
-- 💭 LLM judge comments and feedback
+- ✅/❌ Pass/fail status with scores (1-5 scale) 
+- 🔧 **Tool validation**: Instant feedback if expected tools weren't called
+- 📊 **Server scores**: Tool accuracy, availability, error handling, result formatting
+- ⏱️ **Performance metrics**: Tool execution times and success rates
+- 💭 **Server-focused feedback**: Comments about tool capabilities, not conversation style
 
 ## How It Works
 
-PyMCPEvals tests whether your MCP server helps users accomplish their goals:
+PyMCPEvals focuses on **server capabilities** you can control as a developer:
 
 1. **🔗 Connect** to your MCP server using FastMCP
 2. **🔍 Discover** available tools from the server  
 3. **⚡ Execute** user prompts and track tool calls
-4. **📊 Grade** results using LLM judges (1-5 scale)
-5. **📋 Report** scores and tool usage details
+4. **✅ Validate** expected tools are called (instant programmatic check)
+5. **🎯 Evaluate** server tool performance (ignores LLM conversation style)
+6. **📋 Report** tool execution results and server capabilities
 
 ## Core Problem Solved
 
-**"Do my MCP tools actually help users accomplish their goals?"**
+**"Are my MCP server's tools working correctly and being used as expected?"**
 
-Instead of just testing if your tools work, PyMCPEvals tests if they're **useful**:
+PyMCPEvals separates what you **can control** (server) from what you **cannot** (LLM behavior):
 
-- ✅ Can my weather server help someone plan their day?
-- ✅ Does my database server help users get insights?  
-- ✅ Can my file system server help users organize documents?
+### ✅ **What Server Developers Control (We Test This)**
+- Tool implementation correctness
+- Tool parameter validation
+- Error handling and recovery
+- Tool result formatting
+- Multi-turn state management
+
+### ❌ **What Server Developers Cannot Control (We Ignore This)**
+- LLM conversation patterns
+- How LLMs choose to use tools
+- LLM response formatting
+- Whether LLMs provide intermediate responses
 
 ## Evaluation Types
 
@@ -109,26 +124,63 @@ evaluations:
   - name: "basic_weather"
     prompt: "What's the weather in Boston?"
     expected_result: "Should call weather API and return current conditions"
+    expected_tools: ["get_weather"]  # Programmatically validates tool usage
     threshold: 3.0
 ```
 
+**Programmatic Tool Validation**: When `expected_tools` is specified, the test will instantly fail if:
+- ❌ Expected tools are not attempted (even if they error)
+- ❌ Unexpected tools are called  
+- ❌ No tools are called when some were expected
+
+**Server-Focused LLM Evaluation**: The LLM judge focuses only on server capabilities:
+- ✅ Were tool results accurate and well-formatted?
+- ✅ Did the server provide the necessary tools to complete the task?
+- ✅ Did tools execute successfully or handle errors appropriately?
+- ❌ Ignores empty content during tool calls (normal behavior)
+- ❌ Ignores LLM conversation style and patterns
+
+## Why Server-Focused Evaluation?
+
+Traditional evaluation judges **LLM conversation patterns**, but MCP server developers can't control that. PyMCPEvals focuses on what you **can** control:
+
+```
+❌ Old Approach: "LLM didn't provide intermediate responses"
+✅ New Approach: "Server tools returned correct results in proper format"
+
+❌ Old Approach: "Conversation flow was awkward" 
+✅ New Approach: "Tools chained successfully across turns"
+
+❌ Old Approach: "Response formatting was poor"
+✅ New Approach: "Tool error handling worked correctly"
+```
+
+**Key Insight**: Empty content during tool calls is **normal** in MCP. PyMCPEvals understands this and evaluates the **server's tool capabilities**, not the LLM's conversation style.
+
 ### 2. Multi-Turn Trajectories
 
-Test complex conversations with multiple exchanges:
+Test tool chaining and state management across conversation turns:
 
 ```yaml
 evaluations:
-  - name: "weather_comparison"
+  - name: "multi_step_calculation"
+    description: "Test tool chaining across turns"
     turns:
       - role: "user"
-        content: "What's the weather in Boston?"
-        expected_tools: ["get_weather"]
+        content: "What is 10 + 5?"
+        expected_tools: ["add"]
       - role: "user"  
-        content: "How does that compare to New York?"
-        expected_tools: ["get_weather"]
-    expected_result: "Should provide weather for both cities with comparison"
+        content: "Now multiply that result by 2"
+        expected_tools: ["multiply"]
+    expected_result: "Should chain tools to calculate (10+5)*2 = 30"
     threshold: 4.0
 ```
+
+**Trajectory Focus**: Tests server capabilities across multiple turns:
+- ✅ Can tools be chained together successfully?
+- ✅ Does the server maintain state between turns?
+- ✅ Do tools provide results in formats that enable chaining?
+- ✅ Can the server handle errors and continue the conversation?
 
 ## Installation
 
@@ -206,6 +258,7 @@ evaluations:
     description: "Test domain-specific functionality"
     prompt: "Help me analyze my sales data for trends"
     expected_result: "Should use appropriate tools to analyze sales data"
+    expected_tools: ["query_database", "analyze_trends"]  # Programmatic validation
     threshold: 3.5
     tags: ["analysis", "data"]
 
@@ -214,7 +267,7 @@ evaluations:
     turns:
       - role: "user"
         content: "I need help with my weather data analysis"
-        expected_tools: ["get_weather"]
+        expected_tools: ["get_weather"]  # Per-turn validation
       - role: "user"
         content: "Can you compare today's weather with last week?"
         expected_tools: ["get_weather", "compare_data"]
@@ -264,29 +317,35 @@ server:
 ### Table View (--output table)
 
 ```
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓
-┃ Name                        ┃ Accuracy ┃ Completeness ┃ Relevance ┃ Clarity ┃ Reasoning ┃ Average ┃ Status ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩
-│ Weather planning query      │ 4.5      │ 4.0          │ 5.0       │ 4.2     │ 4.1       │ 4.36    │ PASS   │
-│ Data analysis task          │ 3.1      │ 3.3          │ 3.8       │ 3.5     │ 3.2       │ 3.38    │ PASS   │
-└─────────────────────────────┴──────────┴──────────────┴───────────┴─────────┴───────────┴─────────┴────────┘
+┌──────────────────────────────────────────┬────────┬─────┬──────┬─────┬──────┬──────┬──────┬───────┐
+│ Name                                     │ Status │ Acc │ Comp │ Rel │ Clar │ Reas │ Avg  │ Tools │
+├──────────────────────────────────────────┼────────┼─────┼──────┼─────┼──────┼──────┼──────┼───────┤
+│ What is 15 + 27?                         │ PASS   │ 4.5 │ 4.2  │ 5.0 │ 4.8  │ 4.1  │ 4.52 │ ✓     │
+│ What happens if I divide 10 by 0?        │ PASS   │ 4.0 │ 4.1  │ 4.5 │ 4.2  │ 3.8  │ 4.12 │ ✓     │
+│ Multi-turn test                          │ PASS   │ 4.2 │ 4.5  │ 4.8 │ 4.1  │ 4.3  │ 4.38 │ ✓     │
+└──────────────────────────────────────────┴────────┴─────┴──────┴─────┴──────┴──────┴──────┴───────┘
 
-Summary: 2/2 passed (100.0%) - Average: 3.87/5.0
+Summary: 3/3 passed (100.0%) - Average: 4.34/5.0
 ```
 
 ### Detailed View (--output detailed)
 
 ```
-MCP Server Evaluation Results
+                                    Evaluation Results                                    
+┌─────────────────────────┬────────┬──────┬────────────────────┬────────────────────┬────────┬────────┬──────────────────────────────┐
+│ Test                    │ Status │ Score│ Expected Tools     │ Tools Used         │ Time   │ Errors │ Notes                        │
+├─────────────────────────┼────────┼──────┼────────────────────┼────────────────────┼────────┼────────┼──────────────────────────────┤
+│ What is 15 + 27?        │ PASS   │ 4.5  │ add                │ add                │ 12ms   │ 0      │ OK                           │
+│ What happens if I div...│ PASS   │ 4.1  │ divide             │ divide             │ 8ms    │ 1      │ Handled error correctly      │
+│ Multi-turn test         │ PASS   │ 4.4  │ add, multiply      │ add, multiply      │ 23ms   │ 0      │ Tool chaining successful     │
+└─────────────────────────┴────────┴──────┴────────────────────┴────────────────────┴────────┴────────┴──────────────────────────────┘
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Test                  ┃ Status ┃ Score┃ Tools Used         ┃ Time   ┃ Errors ┃ Notes                        ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ Weather planning      │ PASS   │ 4.36 │ weather_api        │ 245ms  │ 0      │ Good weather integration     │
-│ Data analysis         │ PASS   │ 3.38 │ query_db, analyze  │ 891ms  │ 0      │ Retrieved and analyzed data  │
-└───────────────────────┴────────┴──────┴────────────────────┴────────┴────────┴──────────────────────────────┘
+🔧 Tool Execution Details:
+• add: Called 2 times, avg 10ms, 100% success rate
+• divide: Called 1 time, 8ms, handled error gracefully  
+• multiply: Called 1 time, 13ms, 100% success rate
 
-Summary: 2/2 passed (100.0%) - Average: 3.87/5.0
+Summary: 3/3 passed (100.0%) - Average: 4.33/5.0
 ```
 
 ## Development
@@ -303,14 +362,17 @@ pytest
 # Format code
 black src/
 ruff check src/
+mypy src/
 ```
 
 ## Key Benefits
 
 ### For MCP Server Developers
-- **🔍 Goal-Oriented Testing**: Test if your tools actually help users accomplish tasks
-- **⚡ Tool Usage Insights**: See which tools are used and their success rates
-- **📊 Detailed Scoring**: 5-dimensional scoring (accuracy, completeness, relevance, clarity, reasoning)
+- **🎯 Server-Focused Testing**: Test your server capabilities, not LLM behavior
+- **✅ Instant Tool Validation**: Get immediate feedback if wrong tools are called (no LLM needed)
+- **🔧 Tool Execution Insights**: See success rates, timing, and error handling
+- **🔄 Multi-turn Validation**: Test tool chaining and state management
+- **📊 Capability Scoring**: LLM judges server tool performance, ignoring conversation style
 - **🛠️ Easy Integration**: Works with any MCP server via FastMCP
 
 ### For Development Teams  
@@ -321,7 +383,7 @@ ruff check src/
 
 ## Acknowledgments
 
-🙏 **Huge kudos to [mcp-evals](https://github.com/mclenhard/mcp-evals)** - This Python package was heavily inspired by the excellent Node.js implementation by [@mclenhard](https://github.com/mclenhard). The original mcp-evals project pioneered LLM-based evaluation for MCP servers and established many of the patterns and approaches we've adapted for the Python ecosystem.
+🙏 **Huge kudos to [mcp-evals](https://github.com/mclenhard/mcp-evals)** - This Python package was heavily inspired by the excellent Node.js implementation by [@mclenhard](https://github.com/mclenhard).
 
 If you're working in a Node.js environment, definitely check out the original [mcp-evals](https://github.com/mclenhard/mcp-evals) project, which also includes GitHub Action integration and monitoring capabilities.
 

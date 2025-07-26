@@ -3,6 +3,7 @@
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 from rich.console import Console
@@ -225,34 +226,45 @@ async def _run_single_evaluation(
 
 
 def _output_table(summary: EvaluationSummary) -> None:
-    """Output results as a rich table."""
-    console.print()
-
-    # Results table
-    table = Table(title="Evaluation Results")
+    """Output simple table format."""
+    table = Table()
     table.add_column("Name", style="cyan")
-    table.add_column("Accuracy", justify="center")
-    table.add_column("Completeness", justify="center")
-    table.add_column("Relevance", justify="center")
-    table.add_column("Clarity", justify="center")
-    table.add_column("Reasoning", justify="center")
-    table.add_column("Average", justify="center")
     table.add_column("Status", justify="center")
+    table.add_column("Acc", justify="center", width=5)
+    table.add_column("Comp", justify="center", width=5)
+    table.add_column("Rel", justify="center", width=5)
+    table.add_column("Clar", justify="center", width=5)
+    table.add_column("Reas", justify="center", width=5)
+    table.add_column("Avg", justify="center", width=6)
+    table.add_column("Tools", justify="center", width=10)
 
     for result in summary.results:
         status = "[green]PASS[/green]" if result.passed else "[red]FAIL[/red]"
 
-        # Handle cases where prompt might be None (trajectory mode)
-        prompt_display = result.prompt or "Trajectory evaluation"
+        # Check if tools matched expectations
+        tools_status = ""
+        if result.expected_tools:
+            if set(result.tools_used or []) == set(result.expected_tools):
+                tools_status = "[green]✓[/green]"
+            else:
+                tools_status = "[red]✗[/red]"
+        else:
+            tools_status = "[dim]-[/dim]"
+
+        name = result.prompt or "Multi-turn test"
+        if len(name) > 40:
+            name = name[:37] + "..."
+
         table.add_row(
-            prompt_display[:30] + "..." if len(prompt_display) > 30 else prompt_display,
+            name,
+            status,
             f"{result.accuracy:.1f}",
             f"{result.completeness:.1f}",
             f"{result.relevance:.1f}",
             f"{result.clarity:.1f}",
             f"{result.reasoning:.1f}",
             f"{result.average_score:.2f}",
-            status,
+            tools_status,
         )
 
     console.print(table)
@@ -266,6 +278,7 @@ def _create_main_results_table(summary: EvaluationSummary) -> Table:
     table.add_column("Test", style="cyan", width=25)
     table.add_column("Status", justify="center", width=8)
     table.add_column("Score", justify="center", width=6)
+    table.add_column("Expected Tools", style="blue", width=20)
     table.add_column("Tools Used", style="yellow", width=20)
     table.add_column("Time", justify="center", width=8)
     table.add_column("Errors", justify="center", width=8)
@@ -279,6 +292,9 @@ def _create_main_results_table(summary: EvaluationSummary) -> Table:
         if len(test_name) > 25:
             test_name = test_name[:22] + "..."
 
+        # Expected tools
+        expected_tools_display = _format_tools_display(result.expected_tools)
+
         # Tools used
         tools_display = _format_tools_display(result.tools_used)
 
@@ -286,7 +302,9 @@ def _create_main_results_table(summary: EvaluationSummary) -> Table:
         time_display = _format_time_display(result.total_execution_time_ms)
 
         # Error count
-        error_display = f"[red]{result.failed_tool_calls}[/red]" if result.failed_tool_calls > 0 else "0"
+        error_display = (
+            f"[red]{result.failed_tool_calls}[/red]" if result.failed_tool_calls > 0 else "0"
+        )
 
         # Notes (errors or key insights)
         notes = _format_notes(result)
@@ -295,6 +313,7 @@ def _create_main_results_table(summary: EvaluationSummary) -> Table:
             test_name,
             status,
             f"{result.average_score:.1f}",
+            expected_tools_display,
             tools_display,
             time_display,
             error_display,
@@ -324,13 +343,13 @@ def _format_time_display(time_ms: float) -> str:
     return f"{time_ms:.0f}ms"
 
 
-def _format_notes(result) -> str:
+def _format_notes(result: Any) -> str:
     """Format the notes display for a result."""
     if result.error:
-        return result.error[:30] + "..." if len(result.error) > 30 else result.error
+        return str(result.error[:30] + "..." if len(result.error) > 30 else result.error)
     if not result.passed:
         # Show brief comment for failed tests
-        return (
+        return str(
             result.overall_comments[:30] + "..."
             if len(result.overall_comments) > 30
             else result.overall_comments
@@ -344,6 +363,13 @@ def _display_failed_test_details(failed_results: list) -> None:
     for result in failed_results:
         test_name = result.prompt or "Multi-turn test"
         console.print(f"[bold]• {test_name[:50]}{'...' if len(test_name) > 50 else ''}[/bold]")
+
+        # Show expected vs actual tools if there's a mismatch
+        if result.expected_tools:
+            console.print(f"  [blue]Expected tools:[/blue] {', '.join(result.expected_tools)}")
+            console.print(
+                f"  [yellow]Actual tools:[/yellow] {', '.join(result.tools_used) if result.tools_used else 'None'}"
+            )
 
         # Show tool call details for debugging
         if result.tool_call_details:

@@ -49,10 +49,10 @@ pytest = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/anthropics/pymcpevals"
-Documentation = "https://github.com/anthropics/pymcpevals#readme"
-Repository = "https://github.com/anthropics/pymcpevals"
-Issues = "https://github.com/anthropics/pymcpevals/issues"
+Homepage = "https://github.com/akshay5995/pymcpevals"
+Documentation = "https://github.com/akshay5995/pymcpevals#readme"
+Repository = "https://github.com/akshay5995/pymcpevals"
+Issues = "https://github.com/akshay5995/pymcpevals/issues"
 
 [project.scripts]
 pymcpevals = "pymcpevals.cli:main"
