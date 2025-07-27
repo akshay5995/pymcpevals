@@ -33,7 +33,7 @@ except ImportError:
     # Pytest not installed, plugin features not available
     _pytest_exports = []
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # Build __all__ dynamically to include pytest exports if available
 _base_exports = [

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pymcpevals"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python package for evaluating MCP (Model Context Protocol) server implementations using LLM-based scoring"
 readme = "README.md"
 requires-python = ">=3.10"
