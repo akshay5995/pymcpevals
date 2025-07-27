@@ -2,9 +2,9 @@
 # This example tests a calculator server running locally
 
 model:
-  provider: gemini
-  name: gemini-2.5-flash
-  # API key will be read from GEMINI_API_KEY environment variable
+  provider: anthropic
+  name: claude-3-5-sonnet-20241022
+  # API key will be read from ANTHROPIC_API_KEY environment variable
 
 server:
   # Local server - run as subprocess

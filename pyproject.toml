@@ -57,8 +57,8 @@ Issues = "https://github.com/akshay5995/pymcpevals/issues"
 [project.scripts]
 pymcpevals = "pymcpevals.cli:main"
 
-# [project.entry-points.pytest11]
-# pymcpevals = "pymcpevals.pytest_plugin"  # TODO: Implement pytest plugin
+[project.entry-points.pytest11]
+pymcpevals = "pymcpevals.pytest_plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]

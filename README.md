@@ -190,6 +190,151 @@ pip install pymcpevals
 
 ## Usage
 
+### Programmatic Usage with Pytest Plugin
+
+PyMCPEvals includes a pytest plugin for easy integration into your test suite:
+
+```python
+# conftest.py
+import pytest
+
+# Note: pymcpevals plugin is automatically loaded via entry point
+
+@pytest.fixture
+def mcp_server():
+    return {
+        "command": ["python", "my_server.py"],
+        "env": {"DEBUG": "false"}
+    }
+
+@pytest.fixture
+def mcp_model():
+    return "claude-3-5-sonnet-20241022"  # or "gpt-4"
+```
+
+#### Marker-Based Testing
+
+Use pytest markers for simple test definitions:
+
+```python
+import pytest
+
+@pytest.mark.mcp_eval(
+    prompt="What is 15 + 27?",
+    expected_tools=["add"],
+    expected_result="Should use add tool and return 42",
+    min_score=4.0
+)
+async def test_basic_addition_marker(mcp_result):
+    """Test runs automatically via marker."""
+    assert mcp_result.passed
+    assert "42" in mcp_result.server_response
+```
+
+#### Direct Evaluator Usage
+
+For more control, use the evaluator directly:
+
+```python
+from pymcpevals import MCPEvaluator, assert_evaluation_passed, assert_tools_called
+
+async def test_division_by_zero_direct(mcp_evaluator: MCPEvaluator):
+    """Test error handling with direct evaluator."""
+    result = await mcp_evaluator.evaluate_prompt(
+        prompt="What happens if I divide 10 by 0?",
+        expected_tools=["divide"],
+        expected_result="Should handle division by zero error gracefully",
+        min_score=3.5
+    )
+    
+    assert_evaluation_passed(result)
+    assert_tools_called(result, ["divide"])
+    
+    # Check that error was communicated
+    response_lower = result.server_response.lower()
+    assert any(word in response_lower for word in ["error", "cannot", "undefined"])
+```
+
+#### Multi-Turn Trajectory Testing
+
+Test complex interactions across multiple turns:
+
+```python
+from pymcpevals import ConversationTurn
+
+async def test_simple_math_sequence(mcp_evaluator: MCPEvaluator):
+    """Test multi-step math sequence."""
+    turns = [
+        ConversationTurn(
+            role="user",
+            content="What is 10 + 5?",
+            expected_tools=["add"]
+        ),
+        ConversationTurn(
+            role="user", 
+            content="Now multiply that result by 2",
+            expected_tools=["multiply"]
+        )
+    ]
+    
+    result = await mcp_evaluator.evaluate_trajectory(
+        turns=turns,
+        expected_result="Should calculate (10+5)*2 = 30",
+        min_score=4.0
+    )
+    
+    assert_evaluation_passed(result)
+    assert_tools_called(result, ["add", "multiply"])
+    assert "30" in str(result.conversation_history)
+```
+
+#### Custom Assertions
+
+Use built-in assertion helpers for precise validation:
+
+```python
+from pymcpevals import (
+    assert_evaluation_passed,
+    assert_tools_called, 
+    assert_min_score,
+    assert_no_tool_errors
+)
+
+async def test_with_custom_assertions(mcp_evaluator: MCPEvaluator):
+    result = await mcp_evaluator.evaluate_prompt("Test prompt")
+    
+    # Validate overall success
+    assert_evaluation_passed(result, "Server should handle basic requests")
+    
+    # Validate specific tools were called
+    assert_tools_called(result, ["expected_tool"], exact=True)
+    
+    # Validate minimum scores per dimension
+    assert_min_score(result, 4.0, dimension="accuracy")
+    assert_min_score(result, 3.5)  # overall average
+    
+    # Validate no tool execution failures
+    assert_no_tool_errors(result)
+```
+
+#### Running Pytest Tests
+
+```bash
+# Run all MCP tests
+pytest -m mcp_eval
+
+# Run with API key (use your preferred provider)
+export ANTHROPIC_API_KEY="your-key"
+pytest examples/test_simple_plugin_example.py
+
+# Run specific test types
+pytest -k "marker" -v  # Run marker-based tests
+pytest -k "direct" -v  # Run direct evaluator tests
+
+# Run with verbose output
+pytest -v -s examples/
+```
+
 ### CLI Interface
 
 ```bash
