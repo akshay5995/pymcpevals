@@ -5,13 +5,14 @@ import json
 import time
 from typing import Any
 
+import litellm
 from fastmcp import Client
 from litellm import acompletion
-import litellm
 
 from .types import ConversationTurn, EvaluationCase, EvaluationResult
 
 litellm.modify_params = True
+
 
 async def _setup_tools_from_server(client: Client) -> list[dict[str, Any]]:
     """Set up formatted tools from the MCP server."""
