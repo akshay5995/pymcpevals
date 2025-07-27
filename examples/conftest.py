@@ -2,7 +2,23 @@
 
 import pytest
 
-# Note: pymcpevals plugin is automatically loaded via entry point in pyproject.toml
+# Configure pytest-asyncio
+pytest_plugins = ["pytest_asyncio"]
+
+# The pymcpevals plugin is already automatically loaded from the installed package
+# No need to explicitly load it here
+
+# Configure asyncio mode and fixture scope
+def pytest_configure(config):
+    """Configure pytest for async tests."""
+    config.option.asyncio_mode = "auto"
+
+
+@pytest.fixture(scope="session")
+def event_loop_policy():
+    """Set the event loop policy for the test session."""
+    import asyncio
+    return asyncio.get_event_loop_policy()
 
 
 @pytest.fixture
