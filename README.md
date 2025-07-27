@@ -143,6 +143,23 @@ async def test_math_sequence(mcp_evaluator):
 # Run with: pytest -m mcp_eval
 ```
 
+## Examples
+
+Check out the `examples/` directory for:
+- `calculator_server.py` - Simple MCP server for testing
+- `local_server_basic.yaml` - Basic evaluation configuration examples
+- `trajectory_evaluation.yaml` - Multi-turn conversation examples
+- `test_simple_plugin_example.py` - Pytest integration examples
+
+Run the examples:
+```bash
+# Test with the example calculator server
+pymcpevals run examples/local_server_basic.yaml
+
+# Run pytest examples
+cd examples && pytest test_simple_plugin_example.py
+```
+
 ## Installation
 
 ```bash
