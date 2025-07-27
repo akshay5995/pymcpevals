@@ -5,10 +5,13 @@ import json
 import time
 from typing import Any
 
+import litellm
 from fastmcp import Client
 from litellm import acompletion
 
 from .types import ConversationTurn, EvaluationCase, EvaluationResult
+
+litellm.modify_params = True
 
 
 async def _setup_tools_from_server(client: Client) -> list[dict[str, Any]]:
@@ -826,6 +829,17 @@ async def evaluate_mcp_server_trajectory(
     """
     try:
         # Create FastMCP client
+        # Handle server config dict format
+        if isinstance(server_source, dict):
+            # If it's a config dict, extract the command or URL
+            if "command" in server_source:
+                from .types import ServerConfig
+
+                config = ServerConfig(**server_source)
+                server_source = config.get_server_source()
+            elif "url" in server_source:
+                server_source = server_source["url"]
+
         client = Client(server_source)
 
         async with client:
@@ -884,6 +898,17 @@ async def evaluate_mcp_server(
     """
     try:
         # Create FastMCP client
+        # Handle server config dict format
+        if isinstance(server_source, dict):
+            # If it's a config dict, extract the command or URL
+            if "command" in server_source:
+                from .types import ServerConfig
+
+                config = ServerConfig(**server_source)
+                server_source = config.get_server_source()
+            elif "url" in server_source:
+                server_source = server_source["url"]
+
         client = Client(server_source)
 
         async with client:

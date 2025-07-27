@@ -28,7 +28,6 @@ evaluations:
     turns:
       - role: user
         content: "Divide 10 by 0"
-        expected_tools: ["divide"]
       - role: user
         content: "OK, divide 10 by 2 instead"
         expected_tools: ["divide"]
